@@ -3,88 +3,75 @@ import tempfile
 import streamlit as st
 from streamlit_chat import message
 from agent import Agent
+import random
+import time
 
-st.set_page_config(page_title="ChatPDF")
+def get_topic(path):
+    folder_list = os.listdir(path)
+    topics = {}
+    for folder in folder_list:
+        unit_list = []
+        folder_path = os.path.join(path, folder)
+        file_list = os.listdir(folder_path)
+        for file_name in file_list:
+            unit = file_name.split('.')[0]
+            unit_list.append(unit)
+        topics[folder] = unit_list
+    return topics
 
+topics = get_topic('data')
+st.set_page_config(
+    page_title="Hello",
+    page_icon="👋",
+)
+st.session_state["agent"] = Agent("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")
+selected_topic = st.selectbox(
+    'Please select course!',
+    list(topics.keys())
+)
+option_unit = st.selectbox(
+    'Please select unit!',
+    topics[selected_topic]
+)
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-def display_messages():
-    st.subheader("Chat")
-    for i, (msg, is_user) in enumerate(st.session_state["messages"]):
-        message(msg, is_user=is_user, key=str(i))
-    st.session_state["thinking_spinner"] = st.empty()
+# Display chat messages from history on app rerun
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
+st.session_state["agent"].forget()  # to reset the knowledge base
+st.session_state["messages"] = []
+learning_unit = ""
+if option_unit:
+    learning_unit = option_unit
+    file_selected = os.path.join('data', selected_topic , option_unit + '.pdf')
+    st.session_state["agent"].ingest(file_selected)
 
-def process_input():
-    if st.session_state["user_input"] and len(st.session_state["user_input"].strip()) > 0:
-        user_text = st.session_state["user_input"].strip()
-        with st.session_state["thinking_spinner"], st.spinner(f"Thinking"):
-            agent_text = st.session_state["agent"].ask(user_text)
+if prompt := st.chat_input('Say something'):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-        st.session_state["messages"].append((user_text, True))
-        st.session_state["messages"].append((agent_text, False))
+with st.chat_message("Teacher"):
+    message_placeholder = st.empty()
+    answer = ""
+    full_response = ""
+    if not prompt:
+        answer = random.choice(
+               [
+            f"Hello there! Let's study the topic: {option_unit}",
+        ])
+    else:
+        answer = st.session_state["agent"].ask(prompt)
+    for chunk in answer.split():
+        full_response += chunk + " "
+        time.sleep(0.05)
+        # Add a blinking cursor to simulate typing
+        message_placeholder.markdown(full_response + " ")
+    message_placeholder.markdown(full_response)
 
-
-def read_and_save_file():
-    st.session_state["agent"].forget()  # to reset the knowledge base
-    st.session_state["messages"] = []
-    st.session_state["user_input"] = ""
-
-    for file in st.session_state["file_uploader"]:
-        with tempfile.NamedTemporaryFile(delete=False) as tf:
-            tf.write(file.getbuffer())
-            file_path = tf.name
-
-        with st.session_state["ingestion_spinner"], st.spinner(f"Ingesting {file.name}"):
-            st.session_state["agent"].ingest(file_path)
-        os.remove(file_path)
-
-
-def is_openai_api_key_set() -> bool:
-    return len(st.session_state["OPENAI_API_KEY"]) > 0
-
-
-def main():
-    if len(st.session_state) == 0:
-        st.session_state["messages"] = []
-        st.session_state["OPENAI_API_KEY"] = os.environ.get("OPENAI_API_KEY", "")
-        if is_openai_api_key_set():
-            st.session_state["agent"] = Agent(st.session_state["OPENAI_API_KEY"])
-        else:
-            st.session_state["agent"] = None
-
-    st.header("ChatPDF")
-
-    if st.text_input("OpenAI API Key", value=st.session_state["OPENAI_API_KEY"], key="input_OPENAI_API_KEY", type="password"):
-        if (
-            len(st.session_state["input_OPENAI_API_KEY"]) > 0
-            and st.session_state["input_OPENAI_API_KEY"] != st.session_state["OPENAI_API_KEY"]
-        ):
-            st.session_state["OPENAI_API_KEY"] = st.session_state["input_OPENAI_API_KEY"]
-            if st.session_state["agent"] is not None:
-                st.warning("Please, upload the files again.")
-            st.session_state["messages"] = []
-            st.session_state["user_input"] = ""
-            st.session_state["agent"] = Agent(st.session_state["OPENAI_API_KEY"])
-
-    st.subheader("Upload a document")
-    st.file_uploader(
-        "Upload document",
-        type=["pdf"],
-        key="file_uploader",
-        on_change=read_and_save_file,
-        label_visibility="collapsed",
-        accept_multiple_files=True,
-        disabled=not is_openai_api_key_set(),
-    )
-
-    st.session_state["ingestion_spinner"] = st.empty()
-
-    display_messages()
-    st.text_input("Message", key="user_input", disabled=not is_openai_api_key_set(), on_change=process_input)
-
-    st.divider()
-    st.markdown("Source code: [Github](https://github.com/viniciusarruda/chatpdf)")
+st.session_state.messages.append({"role": "Teacher", "content": full_response})
 
 
-if __name__ == "__main__":
-    main()
