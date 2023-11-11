@@ -1,7 +1,12 @@
 streamlit
 streamlit_chat
 langchain
+python-dotenv
 openai
 faiss-cpu
 pypdf
 tiktoken
+uvicorn[standard]
+fastapi
+redis
+pymongo[srv]

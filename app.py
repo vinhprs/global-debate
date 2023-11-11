@@ -1,10 +1,11 @@
 import os
-import tempfile
 import streamlit as st
 from streamlit_chat import message
-from agent import Agent
-import random
+from src.agent.agent import Agent
+from dotenv import load_dotenv
 import time
+
+load_dotenv()
 
 def get_topic(path):
     folder_list = os.listdir(path)
@@ -19,19 +20,20 @@ def get_topic(path):
         topics[folder] = unit_list
     return topics
 
-topics = get_topic('data')
+topics = get_topic('src/data')
 st.set_page_config(
     page_title="Hello",
     page_icon="👋",
 )
-st.session_state["agent"] = Agent("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")
+openai_key = os.environ["OPEN_AI_KEY"]
+st.session_state["agent"] = Agent(openai_api_key=openai_key)
 selected_topic = st.selectbox(
     'Please select course!',
-    list(topics.keys())
+    list(sorted(topics.keys()))
 )
 option_unit = st.selectbox(
     'Please select unit!',
-    topics[selected_topic]
+    sorted(topics[selected_topic])
 )
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -46,7 +48,7 @@ st.session_state["messages"] = []
 learning_unit = ""
 if option_unit:
     learning_unit = option_unit
-    file_selected = os.path.join('data', selected_topic , option_unit + '.pdf')
+    file_selected = os.path.join('src/data', selected_topic , option_unit + '.pdf')
     st.session_state["agent"].ingest(file_selected)
 
 if prompt := st.chat_input('Say something'):
@@ -59,12 +61,12 @@ with st.chat_message("Teacher"):
     answer = ""
     full_response = ""
     if not prompt:
-        answer = random.choice(
-               [
-            f"Hello there! Let's study the topic: {option_unit}",
-        ])
+        if learning_unit:
+            answer = f"Let's study the topic: {learning_unit}"
+        else:
+            answer = "Hi there, please select an unit top get started!"
     else:
-        answer = st.session_state["agent"].ask(prompt)
+        answer = st.session_state["agent"].ask(selected_topic, learning_unit ,prompt)
     for chunk in answer.split():
         full_response += chunk + " "
         time.sleep(0.05)
@@ -73,5 +75,3 @@ with st.chat_message("Teacher"):
     message_placeholder.markdown(full_response)
 
 st.session_state.messages.append({"role": "Teacher", "content": full_response})
-
-
