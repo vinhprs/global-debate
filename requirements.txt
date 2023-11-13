@@ -10,3 +10,5 @@ uvicorn[standard]
 fastapi
 redis
 pymongo[srv]
+ujson
+chromadb
