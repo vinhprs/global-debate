@@ -9,6 +9,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import LLMChain
 from langchain.prompts.prompt import PromptTemplate
+from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
 from langchain.chains import create_qa_with_sources_chain
 from langchain.chains.combine_documents.stuff import StuffDocumentsChain
 from langchain.vectorstores import Chroma
@@ -24,9 +25,9 @@ class Agent:
 
         self.llm = ChatOpenAI(
             model_name='gpt-3.5-turbo-16k',
-            temperature=0,
+            temperature=0.7,
             openai_api_key=openai_api_key,
-            max_tokens=1000
+            max_tokens=800
         )
         self.chain = None
         self.db = None
@@ -45,57 +46,67 @@ class Agent:
             You're required to simplify your answers for kids under 6 years old understand easily.
 
             If Student answers out of the topic, you should redirect with questions to make sure that Student understands {} and meet the responsibility you were given.
-            Chat History:
-            {{chat_history}}
-
-            Student : {}
-            Teacher :
         """.format(
             topic + " " + unit,
             topic + " " + unit,
             topic + " " + unit,
-            question
         )
         memory = ConversationBufferMemory(
             memory_key="chat_history", return_messages=True
         )
         store_memory = []
-        store_memory = get_key_redis(
-            key=f"memory:{topic.lower().replace(' ', '-')}:{unit.lower().replace(' ','-')}"
-        )
-        if store_memory:
-            store_memory = ujson.loads(store_memory)
-            for m in store_memory[:10]:
-                memory.save_context({"question": m[0]}, {"answer": m[1]})
+        if question != "Get Started":
+            store_memory = get_key_redis(
+                key=f"memory:{topic.lower().replace(' ', '-')}:{unit.lower().replace(' ','-')}"
+            )
+            if store_memory:
+                store_memory = ujson.loads(store_memory)
+                for m in store_memory[:10]:
+                    memory.save_context({"question": m[0]}, {"answer": m[1]})
+            else:
+                store_memory = []
         else:
             store_memory = []
-        prompt = PromptTemplate(
-            input_variables=['chat_history'] ,template=prompt_define
-        )
 
-        qa_chain = create_qa_with_sources_chain(self.llm)
-        doc_prompt = PromptTemplate(
-            template="Content: {page_content}\nSource: {source}",
-            input_variables=["page_content", "source"],
-        )
-        final_qa_chain = StuffDocumentsChain(
-            llm_chain=qa_chain,
-            document_variable_name="context",
-            document_prompt=doc_prompt,
-        )
-        llm_chain = LLMChain(llm=self.llm, prompt=prompt, memory=memory)
-        self.chain = ConversationalRetrievalChain(
-            question_generator=llm_chain,
-            retriever=self.db.as_retriever(), 
-            memory=memory,
+        # prompt = PromptTemplate(
+        #     input_variables=['chat_history'], template=prompt_define
+        # )
+
+        # qa_chain = create_qa_with_sources_chain(
+        #     llm=self.llm, 
+        # )
+        # doc_prompt = PromptTemplate(
+        #     template="Content: {page_content}\nSource: {source}",
+        #     input_variables=["page_content", "source"],
+        # )
+        # final_qa_chain = StuffDocumentsChain(
+        #     llm_chain=qa_chain,
+        #     document_variable_name="context",
+        #     document_prompt=doc_prompt,
+        # )
+        # llm_chain = LLMChain(
+        #     llm=self.llm, 
+        #     prompt=prompt, 
+        # )
+        # messages = [
+        #     SystemMessagePromptTemplate.from_template(template=prompt_define),
+        #     HumanMessagePromptTemplate.from_template(question)
+        # ]
+        # qa_prompt = ChatPromptTemplate.from_messages(messages)
+        self.chain = ConversationalRetrievalChain.from_llm(
+            llm=self.llm,
+            retriever=self.db.as_retriever(search_kwargs={"k": 3}), 
+            # memory=memory,
             get_chat_history=lambda h : h,
-            # return_source_documents=True,
-            combine_docs_chain=final_qa_chain,
-            verbose=True
+            return_source_documents=True,
+            condense_question_llm=self.llm
+            # combine_docs_chain_kwargs={"prompt": prompt_define},
         )
-        answer = self.chain.invoke(question)
-        result = json.loads(answer["answer"])
-        answer = result["answer"]
+        self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(prompt_define, chat_history=store_memory)
+        # self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(template=prompt_define)
+        answer = self.chain.invoke({"question": question, "chat_history": store_memory})
+        # result = json.loads(answer["answer"])
+        answer = answer["answer"]
         store_memory.append((question, answer))
         set_key_redis(
             key=f"memory:{topic.lower().replace(' ', '-')}:{unit.lower().replace(' ','-')}",
