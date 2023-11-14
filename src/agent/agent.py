@@ -47,13 +47,13 @@ class Agent:
 
             If Student answers out of the topic, you should redirect with questions to make sure that Student understands {} and meet the responsibility you were given.
         """.format(
-            topic + " " + unit,
-            topic + " " + unit,
-            topic + " " + unit,
+            topic,
+            topic,
+            topic,
         )
-        memory = ConversationBufferMemory(
-            memory_key="chat_history", return_messages=True
-        )
+        # memory = ConversationBufferMemory(
+        #     memory_key="chat_history", return_messages=True
+        # )
         store_memory = []
         if question != "Get Started":
             store_memory = get_key_redis(
@@ -61,8 +61,8 @@ class Agent:
             )
             if store_memory:
                 store_memory = ujson.loads(store_memory)
-                for m in store_memory[:10]:
-                    memory.save_context({"question": m[0]}, {"answer": m[1]})
+                # for m in store_memory[:10]:
+                #     memory.save_context({"question": m[0]}, {"answer": m[1]})
             else:
                 store_memory = []
         else:
@@ -95,14 +95,20 @@ class Agent:
         # qa_prompt = ChatPromptTemplate.from_messages(messages)
         self.chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
-            retriever=self.db.as_retriever(search_kwargs={"k": 3}), 
+            retriever=self.db.as_retriever(), 
             # memory=memory,
             get_chat_history=lambda h : h,
             return_source_documents=True,
             condense_question_llm=self.llm
             # combine_docs_chain_kwargs={"prompt": prompt_define},
         )
-        self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(prompt_define, chat_history=store_memory)
+        if(len(self.chain.combine_docs_chain.llm_chain.prompt.messages) <3):
+            self.chain.combine_docs_chain.llm_chain.prompt.messages.append(self.chain.combine_docs_chain.llm_chain.prompt.messages[1])
+            self.chain.combine_docs_chain.llm_chain.prompt.messages[1] = self.chain.combine_docs_chain.llm_chain.prompt.messages[0]
+            self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(prompt_define)
+        self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(prompt_define)
+        print(self.chain.combine_docs_chain.llm_chain.prompt.messages)
+
         # self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(template=prompt_define)
         answer = self.chain.invoke({"question": question, "chat_history": store_memory})
         # result = json.loads(answer["answer"])
