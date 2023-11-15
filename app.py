@@ -24,7 +24,7 @@ st.set_page_config(
     page_icon="👋",
 )
 openai_key = "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"
-st.session_state["agent"] = Agent(openai_api_key=openai_key)
+st.session_state["agent"] = Agent("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")
 selected_topic = st.selectbox(
     'Please select course!',
     list(sorted(topics.keys()))
