@@ -1,11 +1,7 @@
 import jwt
 import datetime
-from dataclasses_json import config
 from starlette.config import Config
 from passlib.context import CryptContext
-
-
-import jwt
 
 env = Config(".env")
 
