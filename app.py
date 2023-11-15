@@ -23,7 +23,7 @@ st.set_page_config(
     page_title="Hello",
     page_icon="👋",
 )
-st.session_state["agent"] = Agent("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")
+st.session_state["agent"] = Agent("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")
 selected_topic = st.selectbox(
     'Please select course!',
     list(sorted(topics.keys()))
