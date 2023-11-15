@@ -10,3 +10,12 @@ redis==5.0.1
 pymongo[srv]
 ujson==5.8.0
 jwt
+pydantic
+python-jose
+passlib[bcrypt]
+psycopg2-binary
+openpyxl
+pillow
+requests
+pyjwt
+cryptography
