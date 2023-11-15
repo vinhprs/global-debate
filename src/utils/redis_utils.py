@@ -8,7 +8,7 @@ load_dotenv()
 
 def redis_connection() -> redis.Redis:
     return redis.Redis(
-        host=os.environ["REDIS_HOST"], port=os.environ["REDIS_PORT"], db=0
+        host="188.166.221.86", port=6379, db=0
     )
 
 caching = redis_connection()

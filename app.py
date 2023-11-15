@@ -2,10 +2,8 @@ import os
 import streamlit as st
 from streamlit_chat import message
 from src.agent.agent import Agent
-from dotenv import load_dotenv
 import time
 
-load_dotenv()
 
 def get_topic(path):
     folder_list = os.listdir(path)
@@ -25,7 +23,7 @@ st.set_page_config(
     page_title="Hello",
     page_icon="👋",
 )
-openai_key = os.environ["OPEN_AI_KEY"]
+openai_key = "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"
 st.session_state["agent"] = Agent(openai_api_key=openai_key)
 selected_topic = st.selectbox(
     'Please select course!',
