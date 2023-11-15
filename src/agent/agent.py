@@ -6,16 +6,9 @@ from langchain.vectorstores import FAISS
 
 from langchain.chains import ConversationalRetrievalChain
 from langchain.chat_models import ChatOpenAI
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import LLMChain
-from langchain.prompts.prompt import PromptTemplate
-from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
-from langchain.chains import create_qa_with_sources_chain
-from langchain.chains.combine_documents.stuff import StuffDocumentsChain
-from langchain.vectorstores import Chroma
+from langchain.prompts import SystemMessagePromptTemplate
 from src.utils.redis_utils import get_key_redis, set_key_redis
 import ujson
-import json
 
 class Agent:
     def __init__(self, openai_api_key: str | None = None) -> None:
@@ -67,32 +60,6 @@ class Agent:
                 store_memory = []
         else:
             store_memory = []
-
-        # prompt = PromptTemplate(
-        #     input_variables=['chat_history'], template=prompt_define
-        # )
-
-        # qa_chain = create_qa_with_sources_chain(
-        #     llm=self.llm, 
-        # )
-        # doc_prompt = PromptTemplate(
-        #     template="Content: {page_content}\nSource: {source}",
-        #     input_variables=["page_content", "source"],
-        # )
-        # final_qa_chain = StuffDocumentsChain(
-        #     llm_chain=qa_chain,
-        #     document_variable_name="context",
-        #     document_prompt=doc_prompt,
-        # )
-        # llm_chain = LLMChain(
-        #     llm=self.llm, 
-        #     prompt=prompt, 
-        # )
-        # messages = [
-        #     SystemMessagePromptTemplate.from_template(template=prompt_define),
-        #     HumanMessagePromptTemplate.from_template(question)
-        # ]
-        # qa_prompt = ChatPromptTemplate.from_messages(messages)
         self.chain = ConversationalRetrievalChain.from_llm(
             llm=self.llm,
             retriever=self.db.as_retriever(), 
@@ -107,11 +74,8 @@ class Agent:
             self.chain.combine_docs_chain.llm_chain.prompt.messages[1] = self.chain.combine_docs_chain.llm_chain.prompt.messages[0]
             self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(prompt_define)
         self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(prompt_define)
-        print(self.chain.combine_docs_chain.llm_chain.prompt.messages)
 
-        # self.chain.combine_docs_chain.llm_chain.prompt.messages[0] = SystemMessagePromptTemplate.from_template(template=prompt_define)
         answer = self.chain.invoke({"question": question, "chat_history": store_memory})
-        # result = json.loads(answer["answer"])
         answer = answer["answer"]
         store_memory.append((question, answer))
         set_key_redis(
@@ -128,7 +92,7 @@ class Agent:
         for i, splitted_document in enumerate(splitted_documents):
             splitted_document.metadata["source"] = f"{i}-pl"
         if self.db is None:
-            self.db = Chroma.from_documents(splitted_documents, self.embeddings)
+            self.db = FAISS.from_documents(splitted_documents, self.embeddings)
             self.chat_history = []
 
         else:

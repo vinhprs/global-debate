@@ -1,8 +1,9 @@
 from pydantic import BaseModel
 
 class ChatSchema(BaseModel):
-    unit: int
-    prompt: str
+    unit_id: int = 1
+    prompt: str = ""
+    topic_id: int = 1
 
 class UserSchema(BaseModel):
     username: str

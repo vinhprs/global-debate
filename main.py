@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from src.common.response_schema import ResponseModel
 from src.model.chat_schema import ChatSchema, LoginSchema, UserSchema
-from src.service.chat_service import chat_bot, get_book
+from src.service.chat_service import chat_bot, get_topic
 import src.service.auth_service as Userservice
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI()
 
 app.add_middleware(
@@ -14,16 +16,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-@app.post("/chatbot/")
+@app.post("/chatbot")
 async def chat(input: ChatSchema):
-    response = chat_bot(unit=input.unit, prompt=input.prompt)
-    return {"code": 200, "answer": response}
+    response = chat_bot(
+        topic_id=input.topic_id,
+        unit_id=input.unit_id,
+        prompt=input.prompt
+    )
+    return ResponseModel(
+        status_code=200,
+        message="Chatbot return successfully",
+        data= {
+            "answer": response
+        }
+    )
 
+# @app.post("/ingest", response_model=ResponseModel)
+# def ingest(input: ChatSchema):
+#     result = ingest_data(
+#         unit_id=input.unit_id
+#     )
+#     if result:
+#         return ResponseModel(
+#             status_code=200,
+#             message="Successfully, now you can chat with bot",
+#             data=None
+#         )
+#     else:
+#         return ResponseModel(
+#             status_code=False,
+#             message="Something went wrong",
+#             data=None
+#         )
 
-@app.get("/book")
+@app.get("/topic", response_model=ResponseModel)
 async def chat():
-    response = get_book()
-    return {"code": 200, "books": response}
+    response = get_topic()
+    return ResponseModel(
+        status_code=200,
+        message= "Get successfully",
+        data = response
+    )
 
 
 @app.post("/login")
