@@ -23,8 +23,7 @@ st.set_page_config(
     page_title="Hello",
     page_icon="👋",
 )
-openai_key = "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"
-st.session_state["agent"] = Agent("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")
+st.session_state["agent"] = Agent("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")
 selected_topic = st.selectbox(
     'Please select course!',
     list(sorted(topics.keys()))
