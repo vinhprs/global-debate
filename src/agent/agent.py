@@ -11,7 +11,7 @@ from src.utils.redis_utils import get_key_redis, set_key_redis
 import ujson
 
 class Agent:
-    def __init__(self, openai_api_key: str | None = None) -> None:
+    def __init__(self, openai_api_key: str) -> None:
         self.embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
         self.text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
